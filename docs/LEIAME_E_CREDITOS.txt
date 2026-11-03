@@ -87,6 +87,12 @@ fundamental dos seguintes projetos e desenvolvedores de codigo aberto:
   Runtime nativo para God of War (GS, VU1, IOP, som 989snd, DMA, disco),
   overrides e ferramentas de geracao de VU1/IOP.
 
+* Vnnc1 e colaboradores — gow-native-pc & Stack de Otimizacoes
+  (https://github.com/Vnnc1/gow-native-pc)
+  Pesquisa e calibracao de metricas para 60 FPS, benchmarks em hardware heterogeneo,
+  patch stack de otimizacoes (VU1 fast mode, audio exponencial SPU2 por deslocamento
+  aritmetico, descarte de pacotes obsoletos em cutscenes MPEG) e documentacao tecnica.
+
 * Equipe e Autores do PCSX2
   (https://github.com/PCSX2/pcsx2)
   Referencia do GS original, interpretador do Emotion Engine (ee_ref/) e

@@ -50,6 +50,8 @@ O NativeSX2 é construído sobre a cooperação aberta entre a pesquisa independ
   * Desenvolvimento da ferramenta de recompilação estática de instruções MIPS R5900 para C++ e arquitetura base do runtime de execução (GPL-3.0).
 * **Waffle565 e colaboradores — God-Of-War-Native-Port & GoW Recomp** ([GitHub](https://github.com/Waffle565/God-Of-War-Native-Port))
   * Desenvolvimento inicial do runtime nativo para God of War (sintetizador gráfico GS, VU1, IOP, áudio 989snd, DMA e leitor de disco) e ferramentas auxiliares.
+* **Vnnc1 e colaboradores — gow-native-pc & Stack de Otimizações** ([GitHub](https://github.com/Vnnc1/gow-native-pc))
+  * Pesquisa e calibração de métricas para 60 FPS, benchmarks em hardware heterogêneo, patch stack de otimizações (VU1 fast mode, áudio exponencial SPU2 por deslocamento aritmético, descarte de pacotes obsoletos em cutscenes MPEG) e documentação técnica de suporte.
 * **Equipe e Desenvolvedores do PCSX2** ([pcsx2.net](https://pcsx2.net) / [GitHub](https://github.com/PCSX2/pcsx2))
   * Referência do sintetizador gráfico GS, interpretador de referência do Emotion Engine (`ee_ref`) e operações das unidades vetoriais (`vu_pcsx2`) sob licença GPL-3.0+.
 * **Taylor N. Albarnaz (LightVelox) — Fork do Runtime de Shadow of the Colossus** ([GitHub](https://github.com/LightVelox/PS2Recomp))

@@ -510,9 +510,17 @@ static bool launchGame(const LauncherConfig &cfg, const fs::path &appDir, std::s
     setenv("GOW_SCALER", "bilinear", 1);
 
     if (cfg.fastShadows)
+    {
         setenv("GOW_GS_FAST_SHADOWS", "1", 1);
+        setenv("GOW_VU1_FAST", "1", 1);
+        setenv("GOW_DISPATCH_FULL", "0", 1);
+    }
     else
+    {
         setenv("GOW_GS_FAST_SHADOWS", "", 1);
+        setenv("GOW_VU1_FAST", "", 1);
+        setenv("GOW_DISPATCH_FULL", "1", 1);
+    }
 
     if (cfg.wideExpanded)
         setenv("GOW_PANORAMICO", "ampliado", 1);
@@ -1148,6 +1156,12 @@ int main(int argc, char **argv)
                     "Desenvolvimento do runtime nativo para God of War (sintetizador gráfico GS, VU1, IOP, áudio 989snd, DMA e leitor de disco), overrides e ferramentas.",
                     "Native runtime development (GS graphics, VU1, IOP, 989snd audio, DMA and disc reader), overrides and pipeline tools.",
                     "https://github.com/Waffle565/God-Of-War-Native-Port"
+                },
+                {
+                    "• Vnnc1 e colaboradores — gow-native-pc & Stack de Otimizações",
+                    "Pesquisa de calibração para 60 FPS, benchmarks em hardware heterogêneo, patch stack (VU1 fast mode, áudio exponencial SPU2, pacotes de vídeo) e perfis.",
+                    "60 FPS calibration research, heterogeneous hardware benchmarks, patch stack (VU1 fast mode, SPU2 exponential audio, video packets) and profiling.",
+                    "https://github.com/Vnnc1/gow-native-pc"
                 },
                 {
                     "• Equipe e Autores do PCSX2 (pcsx2.net)",
