@@ -1,0 +1,124 @@
+================================================================================
+  NativeSX2 (by NewPortGame) — Plataforma de Jogos PS2 Nativos para PC
+  Edicao: God of War (PS2 NTSC-U SCUS_973.99) — Windows 10/11 e Linux
+================================================================================
+
+1. COMO USAR NO WINDOWS E NO LINUX
+--------------------------------------------------------------------------------
+- ABRIR A CENTRAL DE CONFIGURACOES:
+  De 2 cliques em "NativeSX2.exe" (Windows) ou no atalho "NativeSX2" (Linux).
+  Na Central voce pode:
+  * Aba 1 (Jogar e Graficos): Escolher Modo PC Fraco ou Modo PC Forte,
+    Resolucao (1x, 2x, 3x), Tela Cheia/Janela, Sombras, Widescreen e FPS;
+  * Aba 2 (Controle e Teclado): Mapear qualquer botao do seu Controle USB /
+    Bluetooth (PS2/PS3/PS4/Xbox) ou qualquer tecla do Teclado;
+  * Aba 3 (Memory Card e .ISO): Fazer Backup/Restaurar seu Memory Card Virtual
+    de 8 MB (Mcd001.ps2) e associar arquivos .ISO ao NativeSX2;
+  * Aba 4 (Creditos e Licenca): Ver toda a engenharia da NewPortGame, os
+    colaboradores da comunidade e abrir a licenca GPL-3.0.
+
+- ABRIR O JOGO DIRETO PELA .ISO (MODO 2 CLIQUES):
+  Depois que o NativeSX2 estiver associado aos arquivos .ISO, basta dar
+  2 cliques direto no arquivo "God of War (USA).iso" para o jogo abrir
+  imediatamente sem passar pela janela de configuracoes!
+  (Na primeira vez, ele extrai sozinho os arquivos necessarios da .ISO).
+
+
+2. ENGENHARIA E PESQUISA NEWPORTGAME (NativeSX2)
+--------------------------------------------------------------------------------
+Responsavel Principal:
+* Cristiano Mariano (NewPortGame) — Fundador, Pesquisa e Desenvolvimento Principal
+  Repositorio Oficial: https://github.com/contatonewportgame-code/nativesx2
+
+Areas de Pesquisa e Desenvolvimento da NewPortGame:
+
+* Pesquisa de Boot EE/IOP e Cadeia Causal:
+  - Mapeamento estatico e dinamico da cadeia causal de inicializacao do ELF
+    SCUS_973.99 (sincronizacao entre Thread Principal e Thread 2 em 0x002947c8,
+    publicacao em 0x002A5B10 e desbloqueio legitimo de WaitSema(3) / SignalSema);
+  - Investigacao do protocolo de comunicacao SIF RPC entre Emotion Engine (EE)
+    e I/O Processor (IOP): SifBindRpc (0x61), SifCallRpc (0x62), pacotes
+    SIF_CMD_RPC_BIND / SIF_CMD_RPC_END, canal DMAC5 e flag CMDINIT (0x20000) no
+    registrador SMFLAG (SifGetReg/SifSetReg);
+  - Desenvolvimento de ferramentas proprias de engenharia reversa e auditoria:
+    scanner estatico de syscalls MIPS R5900 (SignalSema 0x43), auditor de
+    relocacoes de modulos .IRX e inspecao da imagem IOPRP300.IMG (identificacao
+    correta de SIFCMD, SIFMAN, CDVDMAN, IOMAN e LOADCORE).
+
+* Integracao Hibrida e Otimizacoes de Motor:
+  - Unificacao multiplataforma (Linux + Windows 10/11) do pipeline de
+    recompilacao estatica (~6.400 unidades C++ geradas do MIPS R5900 + 1.503
+    blocos de microcodigo VU1 traduzidos para C++ nativo + 8 modulos IOP);
+  - Criacao do PresentCache e do modo GOW_GS_FAST_SHADOWS no backend grafico
+    OpenGL (gs_hw_backend.cpp), eliminando centenas de chamadas a
+    glTextureBarrier() em volumes de sombra stencil (COLCLAMP=0) e leituras
+    redundantes de framebuffer (glReadPixels);
+  - Diagnostico e eliminacao do gargalo de hashing por chamada no interpretador
+    VU1 (GOW_VU1_CAPTURA), destravando a fluidez em tempo real no Windows e no
+    Linux;
+  - Sistema de remapeamento dinamico em tempo de execucao para todos os 18
+    comandos do DualShock 2 tanto no Teclado quanto em Controles USB/Bluetooth
+    (ps2_pad.cpp e gow_overrides.cpp).
+
+* Plataforma e Aplicativo NativeSX2 (by NewPortGame):
+  - Criacao da Central Grafica Multiplataforma NativeSX2 (Linux e Windows) com
+    renderizacao vetorial TrueType anti-aliased;
+  - Extrator nativo ISO9660 em C++ puro integrado ao executavel (extraindo
+    automaticamente SCUS_973.99, GODOFWAR.TOC e modulos .IRX sem depender de
+    ferramentas externas);
+  - Associacao automatica de arquivos .ISO no sistema operacional para abrir
+    jogos diretamente com 2 cliques na .ISO;
+  - Gerenciador de Memory Card Virtual de 8 MB (Mcd001.ps2) com Backup e
+    Restauracao integrados.
+
+
+3. PROJETOS E COLABORADORES DA COMUNIDADE (CODIGO ABERTO)
+--------------------------------------------------------------------------------
+A arquitetura integrada no NativeSX2 soma o nosso trabalho ao trabalho
+fundamental dos seguintes projetos e desenvolvedores de codigo aberto:
+
+* ran-j e colaboradores — Projeto PS2Recomp
+  (https://github.com/ran-j/PS2Recomp)
+  Desenvolvimento do recompilador estatico MIPS R5900 -> C++ e arquitetura base
+  do runtime (Licenca GPL-3.0).
+
+* Waffle565 e colaboradores — God-Of-War-Native-Port & GoW Recomp
+  (https://github.com/Waffle565/God-Of-War-Native-Port)
+  Runtime nativo para God of War (GS, VU1, IOP, som 989snd, DMA, disco),
+  overrides e ferramentas de geracao de VU1/IOP.
+
+* Equipe e Autores do PCSX2
+  (https://github.com/PCSX2/pcsx2)
+  Referencia do GS original, interpretador do Emotion Engine (ee_ref/) e
+  operacoes de unidades vetoriais VU (vu_pcsx2/) (Licenca GPL-3.0+).
+
+* Taylor N. Albarnaz (LightVelox) — Fork do Runtime de Shadow of the Colossus
+  (https://github.com/LightVelox/PS2Recomp/tree/ac9efa070638ad3b3accd284de6f898d5ab271d1)
+  Backend grafico GS OpenGL, fila de comandos e correcoes do EE (FPU, desvios
+  de 64 bits, LQ/SQ, saltos finais, VU0 macro e cadeias DMA longas).
+
+* thiagordsfx — Projeto Urban Reign Recomp
+  (https://github.com/thiagordsfx/urban-reign-recomp)
+  Referencia compartilhada de integracao GS e convencao de campo VSync.
+
+* nemesis2000, CRASHARKI, Ramon Santamaria (Raylib), Omar Cornut (Dear ImGui)
+  e libmpeg2:
+  - Raylib: https://www.raylib.com
+  - Dear ImGui: https://github.com/ocornut/imgui
+  - libmpeg2: https://libmpeg2.sourceforge.io/
+  Valores do patch de camera Widescreen 16:9 ampliado, janela, controles,
+  interface de diagnostico e decodificacao nativa de videos MPEG-2 (IPU).
+
+
+4. LICENCA E AVISO LEGAL
+--------------------------------------------------------------------------------
+- Este software e uma plataforma e motor nativo independente sob a licenca
+  GNU General Public License v3.0 (GPL-3.0). Consulte o arquivo LICENSE.
+- NENHUM conteudo protegido por direitos autorais, BIOS proprietaria ou
+  imagem .ISO de qualquer jogo e distribuido com este programa. O usuario deve
+  fornecer sua propria copia (.ISO) legitima de jogos originais.
+- Todas as marcas registradas, nomes de consoles (PlayStation / PlayStation 2)
+  e titulos pertencem aos seus respectivos detentores de direitos autorais.
+  Este projeto independente nao e afiliado nem endossado pela Sony
+  Interactive Entertainment ou qualquer publicadora/estudio.
+================================================================================
