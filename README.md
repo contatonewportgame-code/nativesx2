@@ -76,14 +76,19 @@ O NativeSX2 é construído sobre a cooperação aberta entre a pesquisa independ
 
 ### 1. Pesquisa, Engenharia e Desenvolvimento — NewPortGame
 * **Cristiano Mariano (NewPortGame)** — *Fundador, Pesquisa Principal e Engenharia de Plataforma*
-  * **Cadeia Causal de Boot EE $\leftrightarrow$ IOP:** Mapeamento estático e dinâmico da sequência de inicialização legítima, sincronização entre Thread Principal e Thread 2 (`0x002947c8`), publicação guest e liberação do semáforo `WaitSema(3)` sem injeções artificiais de host.
+  * **Cadeia Causal de Boot EE $\leftrightarrow$ IOP:** Mapeamento estático e dinâmico da sequência de inicialização legítima, sincronização entre Thread Principal e Thread 2 (`0x002947c8`), publicação guest e liberação do semáforo `WaitSema(3)` sem injeções artificiais de host. Veja a documentação técnica em [`docs/research/`](docs/research/).
   * **Protocolo de Comunicação SIF RPC:** Descoberta e resolução do fluxo `SifBindRpc` (0x61), `SifCallRpc` (0x62), buffer de pacotes RPC DMAC5 e sinalização da flag `CMDINIT` (`0x20000`) no registrador `SMFLAG` via `SifGetReg(4)`.
-  * **Auditoria Estrutural do IOPRP300.IMG:** Desmontagem e identificação correta dos módulos do IOP (identificando bibliotecas internas `LoadModuleByEE` em `loadelf` e `Timer_Manager` em `intrman`).
-  * **Correções de Semântica de Instruções MIPS R5900:**
+  * **Auditoria Estrutural do IOPRP300.IMG:** Desmontagem e identificação correta dos módulos do IOP (identificando bibliotecas internas `LoadModuleByEE` em `loadelf` e `Timer_Manager` em `intrman`) com as ferramentas analíticas em [`tools/`](tools/).
+  * **Correções de Semântica de Instruções MIPS R5900 & Overrides:**
     - Registrador `COP0.Status`: Correção da semântica de `EI/DI` restaurando o controle dos bits `IE|EIE` (`0x10001`) e eliminação do hack que limpava `EIE` globalmente no `sync`.
     - Instruções Quadword `LQ`/`SQ`: Correção no emissor para uso de `r_hi[rt]`, evitando corrupção de registradores no canal VIF1 (`0x10005000`).
+    - Implementação dos subsistemas em tempo de execução: [`src/gow_overrides.cpp`](src/gow_overrides.cpp).
   * **Resolução dos 430+ Bloqueios de Boot:** Mais de 430 passos iterativos de depuração de máquina de estados (`c838`), chamadas de disco (`sceCdRead`) e overlays DVP.
-  * **Desenvolvimento da Plataforma NativeSX2:** Criação da interface em Raylib, extrator nativo ISO9660 em C++, gerenciador de saves, pipeline de empacotamento portátil e instaladores de sistema.
+  * **Desenvolvimento da Plataforma & Motor NativeSX2:**
+    - Central gráfica completa em Raylib com extrator ISO9660 em C++ puro: [`src/nativesx2_launcher.cpp`](src/nativesx2_launcher.cpp).
+    - Mapeamento dinâmico e simultâneo de Teclado e Gamepads USB: [`src/ps2_pad.cpp`](src/ps2_pad.cpp).
+    - Scripts e empacotamento multiplataforma de 1-clique: [`installer/`](installer/).
+    - Roteiro de desvinculação e arquitetura 100% nativa: [`docs/PLANO_DE_DESENVOLVIMENTO_GOW_NATIVO.txt`](docs/PLANO_DE_DESENVOLVIMENTO_GOW_NATIVO.txt).
 
 ### 2. Projetos e Colaboradores da Comunidade (Upstream)
 * **ran-j e colaboradores — Projeto PS2Recomp** ([GitHub](https://github.com/ran-j/PS2Recomp))
