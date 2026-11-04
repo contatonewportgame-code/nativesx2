@@ -3,9 +3,149 @@
 #include "ps2_host_backend.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <sstream>
 
 #ifdef _WIN32
 bool ps2PadWindowsRumble(uint8_t large, bool small); // ps2_pad_rumble_win.cpp
+#else
+extern "C" {
+    const char* glfwGetJoystickGUID(int jid);
+    const char* glfwGetJoystickName(int jid);
+    int glfwJoystickPresent(int jid);
+    int glfwJoystickIsGamepad(int jid);
+    const float* glfwGetJoystickAxes(int jid, int* count);
+    const unsigned char* glfwGetJoystickButtons(int jid, int* count);
+    const unsigned char* glfwGetJoystickHats(int jid, int* count);
+}
+
+static void autoConfigureGamepadsLinux()
+{
+    static int s_checkCounter = 0;
+    if (++s_checkCounter > 1 && (s_checkCounter % 120 != 0))
+        return;
+
+    const char* envMapping = std::getenv("NATIVESX2_CONTROLLER_MAPPING");
+    if (envMapping && *envMapping)
+        SetGamepadMappings(envMapping);
+    const char* envSdl = std::getenv("SDL_GAMECONTROLLERCONFIG");
+    if (envSdl && *envSdl)
+        SetGamepadMappings(envSdl);
+
+    static bool s_dbLoaded = false;
+    if (!s_dbLoaded)
+    {
+        const char *dbCandidates[] = {
+            "gamecontrollerdb.txt",
+            "/opt/nativesx2/gamecontrollerdb.txt",
+            "/home/cristiano/.local/share/NativeSX2/gamecontrollerdb.txt",
+            "/home/cristiano/newportgame4/gamecontrollerdb.txt",
+            nullptr
+        };
+        for (int i = 0; dbCandidates[i]; ++i)
+        {
+            std::FILE *f = std::fopen(dbCandidates[i], "rb");
+            if (f)
+            {
+                std::fseek(f, 0, SEEK_END);
+                long sz = std::ftell(f);
+                std::fseek(f, 0, SEEK_SET);
+                if (sz > 0 && sz < 5 * 1024 * 1024)
+                {
+                    char *buf = new char[sz + 1];
+                    std::size_t readBytes = std::fread(buf, 1, sz, f);
+                    buf[readBytes] = '\0';
+                    SetGamepadMappings(buf);
+                    delete[] buf;
+                    s_dbLoaded = true;
+                }
+                std::fclose(f);
+                if (s_dbLoaded) break;
+            }
+        }
+    }
+
+    std::string newMappings;
+    for (int jid = 0; jid <= 15; ++jid)
+    {
+        if (!glfwJoystickPresent(jid)) continue;
+        if (glfwJoystickIsGamepad(jid)) continue;
+
+        const char *cguid = glfwGetJoystickGUID(jid);
+        const char *cname = glfwGetJoystickName(jid);
+        if (!cguid || !cname) continue;
+        std::string guid(cguid);
+        std::string name(cname);
+
+        int axisCount = 0;
+        glfwGetJoystickAxes(jid, &axisCount);
+        int btnCount = 0;
+        glfwGetJoystickButtons(jid, &btnCount);
+        int hatCount = 0;
+        glfwGetJoystickHats(jid, &hatCount);
+
+        std::fprintf(stderr, "[ps2_pad] Auto-configurando joystick %d: '%s' (GUID: %s, Eixos: %d, Botões: %d, Hats: %d)\n",
+                     jid, name.c_str(), guid.c_str(), axisCount, btnCount, hatCount);
+
+        bool matchedVendorProduct = false;
+        if (guid.length() >= 24)
+        {
+            std::string venProd = guid.substr(8, 16);
+            const char *dbCandidates[] = {
+                "gamecontrollerdb.txt",
+                "/opt/nativesx2/gamecontrollerdb.txt",
+                "/home/cristiano/.local/share/NativeSX2/gamecontrollerdb.txt",
+                "/home/cristiano/newportgame4/gamecontrollerdb.txt",
+                nullptr
+            };
+            for (int d = 0; dbCandidates[d] && !matchedVendorProduct; ++d)
+            {
+                std::ifstream f(dbCandidates[d]);
+                if (!f) continue;
+                std::string line;
+                while (std::getline(f, line))
+                {
+                    if (line.empty() || line[0] == '#') continue;
+                    if (line.find("platform:Linux") == std::string::npos) continue;
+                    if (line.length() >= 24 && line.substr(8, 16) == venProd)
+                    {
+                        size_t firstComma = line.find(',');
+                        if (firstComma != std::string::npos)
+                        {
+                            std::string clone = guid + "," + name + line.substr(line.find(',', firstComma + 1));
+                            newMappings += clone + "\n";
+                            matchedVendorProduct = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!matchedVendorProduct)
+        {
+            std::string m = guid + "," + name + ",a:b0,b:b1,x:b2,y:b3,leftshoulder:b4,rightshoulder:b5,back:b6,start:b7,guide:b8,leftstick:b9,rightstick:b10,";
+            if (hatCount > 0)
+                m += "dpup:h0.1,dpright:h0.2,dpdown:h0.4,dpleft:h0.8,";
+            else if (btnCount >= 15)
+                m += "dpup:b11,dpright:b12,dpdown:b13,dpleft:b14,";
+            if (axisCount >= 6)
+                m += "leftx:a0,lefty:a1,lefttrigger:a2,rightx:a3,righty:a4,righttrigger:a5,";
+            else if (axisCount >= 4)
+                m += "leftx:a0,lefty:a1,rightx:a2,righty:a3,";
+            m += "platform:Linux,\n";
+            newMappings += m;
+        }
+    }
+
+    if (!newMappings.empty())
+    {
+        SetGamepadMappings(newMappings.c_str());
+    }
+    PollInputEvents();
+}
 #endif
 
 namespace
@@ -35,6 +175,10 @@ bool PSPadBackend::readState(int /*port*/, int /*slot*/, uint8_t *data, size_t s
 {
     if (!data || size < 32)
         return false;
+
+#ifndef _WIN32
+    autoConfigureGamepadsLinux();
+#endif
 
     std::memset(data, 0, 32);
     data[0] = 0x01;
@@ -130,51 +274,54 @@ bool PSPadBackend::readState(int /*port*/, int /*slot*/, uint8_t *data, size_t s
         data[4] = static_cast<uint8_t>(128 + rx * 127);
         data[5] = static_cast<uint8_t>(128 + ry * 127);
     }
-    else
-    {
-        static const int kUp       = envInt("NATIVESX2_KEY_UP",       KEY_UP);
-        static const int kDown     = envInt("NATIVESX2_KEY_DOWN",     KEY_DOWN);
-        static const int kLeft     = envInt("NATIVESX2_KEY_LEFT",     KEY_LEFT);
-        static const int kRight    = envInt("NATIVESX2_KEY_RIGHT",    KEY_RIGHT);
-        static const int kCross    = envInt("NATIVESX2_KEY_CROSS",    KEY_X);
-        static const int kCircle   = envInt("NATIVESX2_KEY_CIRCLE",   KEY_C);
-        static const int kSquare   = envInt("NATIVESX2_KEY_SQUARE",   KEY_Z);
-        static const int kTriangle = envInt("NATIVESX2_KEY_TRIANGLE", KEY_V);
-        static const int kL1       = envInt("NATIVESX2_KEY_L1",       KEY_Q);
-        static const int kR1       = envInt("NATIVESX2_KEY_R1",       KEY_E);
-        static const int kL2       = envInt("NATIVESX2_KEY_L2",       KEY_LEFT_SHIFT);
-        static const int kR2       = envInt("NATIVESX2_KEY_R2",       KEY_RIGHT_SHIFT);
-        static const int kStart    = envInt("NATIVESX2_KEY_START",    KEY_ENTER);
-        static const int kSelect   = envInt("NATIVESX2_KEY_SELECT",   KEY_TAB);
-        static const int kLxNeg    = envInt("NATIVESX2_KEY_LX_NEG",   KEY_A);
-        static const int kLxPos    = envInt("NATIVESX2_KEY_LX_POS",   KEY_D);
-        static const int kLyNeg    = envInt("NATIVESX2_KEY_LY_NEG",   KEY_W);
-        static const int kLyPos    = envInt("NATIVESX2_KEY_LY_POS",   KEY_S);
-        static const int kRxNeg    = envInt("NATIVESX2_KEY_RX_NEG",   KEY_J);
-        static const int kRxPos    = envInt("NATIVESX2_KEY_RX_POS",   KEY_L);
-        static const int kRyNeg    = envInt("NATIVESX2_KEY_RY_NEG",   KEY_I);
-        static const int kRyPos    = envInt("NATIVESX2_KEY_RY_POS",   KEY_K);
 
-        if (IsKeyDown(kUp))       clearBit(PAD_UP);
-        if (IsKeyDown(kDown))     clearBit(PAD_DOWN);
-        if (IsKeyDown(kLeft))     clearBit(PAD_LEFT);
-        if (IsKeyDown(kRight))    clearBit(PAD_RIGHT);
-        if (IsKeyDown(kCross)    || (kCross == KEY_X && IsKeyDown(KEY_SPACE)))     clearBit(PAD_CROSS);
-        if (IsKeyDown(kCircle)   || (kCircle == KEY_C && IsKeyDown(KEY_ESCAPE)))   clearBit(PAD_CIRCLE);
-        if (IsKeyDown(kSquare)   || (kSquare == KEY_Z && IsKeyDown(KEY_KP_0)))     clearBit(PAD_SQUARE);
-        if (IsKeyDown(kTriangle) || (kTriangle == KEY_V && IsKeyDown(KEY_KP_1)))   clearBit(PAD_TRIANGLE);
-        if (IsKeyDown(kL1))       clearBit(PAD_L1);
-        if (IsKeyDown(kR1))       clearBit(PAD_R1);
-        if (IsKeyDown(kL2))       clearBit(PAD_L2);
-        if (IsKeyDown(kR2))       clearBit(PAD_R2);
-        if (IsKeyDown(kStart))    clearBit(PAD_START);
-        if (IsKeyDown(kSelect))   clearBit(PAD_SELECT);
+    // Leitura simultânea do teclado (sempre disponível para ambos funcionarem perfeitamente juntos)
+    static const int kUp       = envInt("NATIVESX2_KEY_UP",       KEY_UP);
+    static const int kDown     = envInt("NATIVESX2_KEY_DOWN",     KEY_DOWN);
+    static const int kLeft     = envInt("NATIVESX2_KEY_LEFT",     KEY_LEFT);
+    static const int kRight    = envInt("NATIVESX2_KEY_RIGHT",    KEY_RIGHT);
+    static const int kCross    = envInt("NATIVESX2_KEY_CROSS",    KEY_X);
+    static const int kCircle   = envInt("NATIVESX2_KEY_CIRCLE",   KEY_C);
+    static const int kSquare   = envInt("NATIVESX2_KEY_SQUARE",   KEY_Z);
+    static const int kTriangle = envInt("NATIVESX2_KEY_TRIANGLE", KEY_V);
+    static const int kL1       = envInt("NATIVESX2_KEY_L1",       KEY_Q);
+    static const int kR1       = envInt("NATIVESX2_KEY_R1",       KEY_E);
+    static const int kL2       = envInt("NATIVESX2_KEY_L2",       KEY_LEFT_SHIFT);
+    static const int kR2       = envInt("NATIVESX2_KEY_R2",       KEY_RIGHT_SHIFT);
+    static const int kStart    = envInt("NATIVESX2_KEY_START",    KEY_ENTER);
+    static const int kSelect   = envInt("NATIVESX2_KEY_SELECT",   KEY_TAB);
+    static const int kLxNeg    = envInt("NATIVESX2_KEY_LX_NEG",   KEY_A);
+    static const int kLxPos    = envInt("NATIVESX2_KEY_LX_POS",   KEY_D);
+    static const int kLyNeg    = envInt("NATIVESX2_KEY_LY_NEG",   KEY_W);
+    static const int kLyPos    = envInt("NATIVESX2_KEY_LY_POS",   KEY_S);
+    static const int kRxNeg    = envInt("NATIVESX2_KEY_RX_NEG",   KEY_J);
+    static const int kRxPos    = envInt("NATIVESX2_KEY_RX_POS",   KEY_L);
+    static const int kRyNeg    = envInt("NATIVESX2_KEY_RY_NEG",   KEY_I);
+    static const int kRyPos    = envInt("NATIVESX2_KEY_RY_POS",   KEY_K);
 
-        data[6] = IsKeyDown(kLxNeg) ? 0 : IsKeyDown(kLxPos) ? 255 : 128;
-        data[7] = IsKeyDown(kLyNeg) ? 0 : IsKeyDown(kLyPos) ? 255 : 128;
-        data[4] = IsKeyDown(kRxNeg) ? 0 : IsKeyDown(kRxPos) ? 255 : 128;
-        data[5] = IsKeyDown(kRyNeg) ? 0 : IsKeyDown(kRyPos) ? 255 : 128;
-    }
+    if (IsKeyDown(kUp))       clearBit(PAD_UP);
+    if (IsKeyDown(kDown))     clearBit(PAD_DOWN);
+    if (IsKeyDown(kLeft))     clearBit(PAD_LEFT);
+    if (IsKeyDown(kRight))    clearBit(PAD_RIGHT);
+    if (IsKeyDown(kCross)    || (kCross == KEY_X && IsKeyDown(KEY_SPACE)))     clearBit(PAD_CROSS);
+    if (IsKeyDown(kCircle)   || (kCircle == KEY_C && IsKeyDown(KEY_ESCAPE)))   clearBit(PAD_CIRCLE);
+    if (IsKeyDown(kSquare)   || (kSquare == KEY_Z && IsKeyDown(KEY_KP_0)))     clearBit(PAD_SQUARE);
+    if (IsKeyDown(kTriangle) || (kTriangle == KEY_V && IsKeyDown(KEY_KP_1)))   clearBit(PAD_TRIANGLE);
+    if (IsKeyDown(kL1))       clearBit(PAD_L1);
+    if (IsKeyDown(kR1))       clearBit(PAD_R1);
+    if (IsKeyDown(kL2))       clearBit(PAD_L2);
+    if (IsKeyDown(kR2))       clearBit(PAD_R2);
+    if (IsKeyDown(kStart))    clearBit(PAD_START);
+    if (IsKeyDown(kSelect))   clearBit(PAD_SELECT);
+
+    if (IsKeyDown(kLxNeg)) data[6] = 0;
+    else if (IsKeyDown(kLxPos)) data[6] = 255;
+    if (IsKeyDown(kLyNeg)) data[7] = 0;
+    else if (IsKeyDown(kLyPos)) data[7] = 255;
+    if (IsKeyDown(kRxNeg)) data[4] = 0;
+    else if (IsKeyDown(kRxPos)) data[4] = 255;
+    if (IsKeyDown(kRyNeg)) data[5] = 0;
+    else if (IsKeyDown(kRyPos)) data[5] = 255;
 
     data[2] = static_cast<uint8_t>(btns & 0xFF);
     data[3] = static_cast<uint8_t>(btns >> 8);

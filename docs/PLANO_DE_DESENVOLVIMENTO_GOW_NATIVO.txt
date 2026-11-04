@@ -1,0 +1,170 @@
+================================================================================
+          PROJETO NATIVESX2 - ROTEIRO TÉCNICO DE EVOLUÇÃO
+      TRANSFORMAÇÃO DE GOD OF WAR EM PORT 100% NATIVO PARA PC
+================================================================================
+Autor: Cristiano Mariano (NewPortGame) & Comunidade Open-Source
+Data de Criação: Novembro de 2026
+Localização: C:\Users\MARIANO\Documents\ROMPROJECT\NATIVESX2
+================================================================================
+
+1. INTRODUÇÃO E OBJETIVO
+--------------------------------------------------------------------------------
+Atualmente, o God of War roda no PC através de uma Recompilação Estática da CPU 
+(MIPS R5900 traduzido para C++ x86-64 com o PS2Recomp), enquanto o chip gráfico
+(Graphics Synthesizer - GS) e os subsistemas de áudio e I/O ainda operam sob uma
+camada de emulação/tradução de baixo nível.
+
+O objetivo deste roteiro é orientar a substituição gradual desses componentes
+emulados por componentes de PC modernos nativos, transformando o God of War em
+um jogo de PC verdadeiro (semelhante ao que foi feito no Super Mario 64 PC Port
+e no Jak and Daxter OpenGOAL), garantindo:
+  - 60 FPS estáveis mesmo em notebooks e PCs com gráficos integrados (Intel HD).
+  - Resoluções limpas em 1080p, 1440p e 4K sem listras ou artefatos em cutscenes.
+  - Carregamento quase instantâneo de fases e texturas.
+  - 100% de conformidade legal (Zero problemas com direitos autorais da Sony).
+
+
+2. BLINDAGEM LEGAL E DIRETRIZES DE DIREITOS AUTORAIS (DMCA)
+--------------------------------------------------------------------------------
+A regra de ouro dos projetos de recompilação e engenharia reversa:
+
+[PERMITIDO DISTRIBUIR PUBLICAMENTE]:
+  - Todo o código-fonte C++ do motor e do launcher.
+  - Shaders próprios (.vert, .frag, .comp em GLSL/HLSL).
+  - Ferramentas de extração e conversão de arquivos.
+  - O executável compilado do NativeSX2.
+
+[PROIBIDO DISTRIBUIR (PROTEGIDO POR COPYRIGHT DA SONY)]:
+  - Arquivos brutos de texturas (.tm2, .dds), modelos 3D, dublagens e músicas.
+  - Arquivos de vídeo pré-renderizados (.PSS / MPEG2).
+  - O arquivo SCUS_973.99 ou a ISO completa de 8 GB.
+
+[A SOLUÇÃO: EXTRATOR DE PRIMEIRA EXECUÇÃO (CLEAN ASSET EXTRACTION)]:
+  O instalador e o NativeSX2 vêm limpos (apenas o motor e as ferramentas).
+  Na primeira vez que o usuário abrir o jogo, o programa solicita a sua ISO 
+  própria e executa um script C++ interno que:
+    a) Descompacta as texturas, sons e mapas apenas no disco local do usuário.
+    b) Converte os arquivos para o formato nativo de PC (.pak ou pastas).
+    c) Salva na pasta local 'assets/'.
+  A partir daí, o jogo nunca mais precisa ler a ISO e você está 100% protegido
+  juridicamente, pois nunca hospedou ou distribuiu propriedade da Sony.
+
+
+3. AS 4 ETAPAS DE TRANSFORMAÇÃO NATIVA
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+ETAPA 1: OTIMIZAÇÃO E MODERNIZAÇÃO GRÁFICA (O MAIOR GANHO DE FPS)
+--------------------------------------------------------------------------------
+Gargalo atual: O GS do PS2 tinha uma memória interna de 48 GB/s (eDRAM). Para 
+criar sombras, brilho e névoa, ele desenha o mesmo modelo 8 a 12 vezes por quadro.
+No PC com placa integrada, essa sobreposição afoga a memória RAM.
+
+Ações a executar:
+1. Eliminação do Overdraw de Sombras (Modern Shadow Pass):
+   - Atualmente usamos o 'FastShadows' que agrupa os passes de estêncil.
+   - Próximo passo: Interceptar as chamadas de sombra volumétrica do PS2 e 
+     substituir por uma única passagem de Shadow Map moderno na GPU.
+2. Fragment Shaders de Pós-Processamento:
+   - Substituir os ciclos em que o jogo copia a tela inteira de volta para a 
+     VRAM (texture flushes) por um único Shader de Pós-Processamento GLSL/HLSL.
+   - Isso elimina as travadas de renderização e remove definitivamente as 
+     listras verticais em cutscenes em resoluções altas (2x e 3x).
+3. Backend de Baixo Overhead (Vulkan / Direct3D 11/12):
+   - O driver OpenGL da Intel no Windows tem alto custo de CPU por comando.
+   - Implementar uma camada de renderização Vulkan ou Direct3D 11 reduzirá pela
+     metade o trabalho do processador na hora de enviar vértices para a tela.
+
+
+--------------------------------------------------------------------------------
+ETAPA 2: DESACOPLAMENTO DA ISO E SISTEMA DE ASSETS NATIVO
+--------------------------------------------------------------------------------
+Gargalo atual: O jogo ainda emula um leitor de DVD virtual (driver cdvdman.irx), 
+buscando setores LBA dentro do arquivo .ISO gigante de 8 GB.
+
+Ações a executar:
+1. Extrator ISO9660 em C++ Integrado:
+   - Ler a tabela TOC (Table of Contents) da ISO de God of War.
+   - Extrair os arquivos de fase (.WAD), sons (.VAG / .HD / .BD) e pacotes PSS.
+2. Sistema de Arquivos Direto do Windows:
+   - Redirecionar todas as chamadas 'sceOpen', 'sceRead', 'sceLseek' do jogo
+     para a API Win32 ('CreateFileA', 'ReadFile') ou std::ifstream em C++.
+3. Armazenamento Compactado Moderno (.PAK / Zstandard):
+   - Guardar os assets em arquivos de pacote com compressão rápida Zstandard.
+   - Redução do tamanho em disco de 8,1 GB para cerca de 4 GB, com tempos de 
+     carregamento de apenas 0,3 a 0,5 segundos.
+
+
+--------------------------------------------------------------------------------
+ETAPA 3: MODERNIZAÇÃO DO SUBSISTEMA DE ÁUDIO E CONTROLES (IOP)
+--------------------------------------------------------------------------------
+Gargalo atual: O PS2 usava a CPU do PS1 como co-processador IOP para gerenciar
+som e controle. O nosso código ainda precisa simular módulos .IRX proprietários 
+(989nomid.irx, libsd.irx) e canais de sincronização RPC (SIF).
+
+Ações a executar:
+1. Substituição do Motor de Áudio:
+   - Integrar uma biblioteca de áudio C++ moderna e ultra leve, como Miniaudio 
+     (arquivo único header-only) ou SDL_Audio.
+   - Tocar os efeitos sonoros e músicas diretamente através de canais normais do
+     Windows (WASAPI / DirectSound) sem passar por emulação de registradores SPU2.
+2. Eliminação de Deadlocks do IOP:
+   - Ao retirar o emulador de IOP, os pontos de sincronização estática que 
+     travavam o boot (WaitSema / SignalSema) deixam de existir, pois tudo roda 
+     em threads comuns de sistema operacional.
+3. Entrada Nativa Multi-Dispositivo (SDL2 / XInput):
+   - Mapeamento universal automático de controles de Xbox, PlayStation (DualShock 4,
+     DualSense), Nintendo Switch e genéricos sem emular a porta de controle do PS2.
+
+
+--------------------------------------------------------------------------------
+ETAPA 4: PIPELINE DE GEOMETRIA E DESCOMPILAÇÃO AVANÇADA
+--------------------------------------------------------------------------------
+Gargalo atual: A unidade vetorial VU1 ainda transforma vértices calculando código 
+de microcódigo MIPS.
+
+Ações a executar:
+1. Vertex Buffers Nativos (VBO / VAO):
+   - Fazer com que o código gerador de malhas envie vértices e índices diretamente
+     para a memória da GPU em formato padrão (float x, y, z; float u, v; uint color).
+2. Widescreen / UltraWide Verdadeiro (Sem cortes na tela):
+   - O modo 16:9 original do PS2 cortava a parte superior e inferior da imagem.
+   - Com o pipeline nativo de PC, ajustamos o Field of View (FOV) da câmera 
+     dinamicamente, permitindo telas 16:9, 21:9 e 32:9 com visão periférica real.
+3. Desbloqueio de Taxa de Quadros (120 FPS / 144 FPS / 240 FPS):
+   - Desvincular o relógio da física e animações do VSync fixo de 60 Hz do PS2.
+   - Criar interpolação de quadros para animações de Kratos e câmera a 120+ FPS.
+
+
+4. ARQUITETURA E ESTRUTURA RECOMENDADA DO REPOSITÓRIO
+--------------------------------------------------------------------------------
+Quando formos organizar a estrutura de pastas do código-fonte para essa transição:
+
+nativesx2/
+├── src/
+│   ├── app/            -> Central do NativeSX2 (Launcher, GUI, Raylib/Dear ImGui)
+│   ├── core/           -> Lógica re-compilada de God of War (SCUS_973.99 C++)
+│   ├── graphics/       -> Renderizador moderno (Vulkan / Direct3D / OpenGL)
+│   ├── audio/          -> Motor de áudio nativo (Miniaudio / decodificador VAG)
+│   ├── input/          -> Gestor de controles (SDL2 / XInput)
+│   └── extractor/      -> Ferramenta que extrai e valida a ISO original do usuário
+├── shaders/            -> Shaders modernos GLSL/HLSL para efeitos e sombras
+├── tools/              -> Scripts de compilação automática (CMake, MSVC, Clang)
+└── docs/               -> Documentação de engenharia reversa e arquitetura
+
+
+5. PRIMEIROS PASSOS QUANDO RECOMEÇARMOS
+--------------------------------------------------------------------------------
+1. No repositório local, inspecionar a pasta 'gow_portatil_pc\gow_port\src\':
+   - Arquivo 'gs_opengl.cpp': Onde os comandos do sintetizador gráfico são 
+     recebidos e desenhados.
+   - Arquivo 'gow_overrides.cpp': Onde as funções originais do jogo são 
+     substituídas por código de PC puro.
+2. Criar nosso primeiro override em C++ para o efeito de Blur/Névoa, medindo o
+   aumento imediato de FPS no notebook.
+3. Manter o repositório no GitHub sincronizado e documentado.
+
+================================================================================
+Documento gerado e arquivado para consultas e implementações futuras.
+NewPortGame - Inovação e Preservação de Jogos Clássicos para PC.
+================================================================================

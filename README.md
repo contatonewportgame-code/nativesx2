@@ -30,6 +30,46 @@
 
 ---
 
+## 📥 Downloads & Instalação / Installation
+
+Todos os instaladores oficiais e versões portáteis pré-compiladas do **NativeSX2** estão disponíveis na aba de [**Releases do GitHub**](https://github.com/contatonewportgame-code/nativesx2/releases).
+
+Escolha o formato ideal para seu sistema operacional:
+
+### 🪟 Windows (10 / 11 — 64-bit)
+
+| Pacote | Formato | Descrição & Recursos | Como Usar |
+| :--- | :---: | :--- | :--- |
+| **`Instalador_NativeSX2_PC.exe`** | **Instalador Oficial** *(Recomendado)* | Assistente passo a passo completo. Cria atalhos na Área de Trabalho e Menu Iniciar, inclui desinstalador limpo e **associa automaticamente arquivos `.iso`** ao motor. | Execute com 2 cliques e siga o assistente. Ao terminar, abra o atalho ou dê 2 cliques diretamente em qualquer arquivo `.iso` de jogo compatível. |
+| **`NativeSX2_Portatil_PC.zip`** | **Portátil (.ZIP)** | Versão independente que não altera o Registro do Windows nem precisa de privilégios de administrador. Ideal para rodar direto de **HDs Externos, Pendrives** ou pastas personalizadas. | Extraia o arquivo `.zip` no local desejado e abra o executável `NativeSX2.exe`. Para associar a `.iso` sem instalar, basta executar o script `INSTALAR_1_CLIQUE.cmd` incluído. |
+
+---
+
+### 🐧 Linux (Universal x86_64 — Ubuntu, Debian, Mint, Fedora, Arch, etc.)
+
+| Pacote | Formato / Distro | Descrição & Recursos | Como Usar |
+| :--- | :---: | :--- | :--- |
+| **`Instalador_NativeSX2_Linux.deb`** | **Pacote Debian** *(Ubuntu / Mint / Pop!_OS / Debian)* | Instalação nativa em 2 cliques integrada ao sistema. Instala em `/opt/nativesx2`, registra ícone em alta definição e cria atalho no Menu de Aplicativos. | Dê 2 cliques para instalar pela Central de Aplicativos ou execute no terminal: `sudo dpkg -i Instalador_NativeSX2_Linux.deb`. |
+| **`Instalador_NativeSX2_Linux.run`** | **Universal 1-Clique** *(Todas as Distros)* | Instalador gráfico auto-extraível compatível com qualquer distribuição Linux (Fedora, Arch Linux, Manjaro, openSUSE, etc.). Configura atalhos `.desktop` automaticamente. | No terminal: `chmod +x Instalador_NativeSX2_Linux.run && ./Instalador_NativeSX2_Linux.run` (ou marque "Permitir executar como programa" no seu gerenciador de arquivos). |
+| **`NativeSX2_Portatil_Linux.tar.gz`** / **`.zip`** | **Portátil Standalone** | Pacote portátil puro sem necessidade de privilégios root. Permissões de execução pré-configuradas para o executável e bibliotecas. | Extraia o arquivo e execute `./iniciar.sh` ou `./NativeSX2`. Pode ser rodado diretamente de pendrives ou HDs externos formatados em Ext4/NTFS/exFAT. |
+
+---
+
+### 🚀 Guia Rápido de Uso (Como Jogar)
+
+1. **Obtenha a imagem de disco (`.iso`) legítima:**
+   - O NativeSX2 não distribui arquivos proprietários nem cópias de jogos. Utilize a `.iso` gerada a partir do seu disco original de PS2.
+   - A ISO pode estar armazenada **no SSD local, em um HD Externo ou em um Pen Drive**.
+2. **Inicie o Jogo:**
+   - **Opção A (2 Cliques no Windows):** Dê 2 cliques no arquivo `.iso` do jogo (o NativeSX2 fará o reconhecimento do disco e iniciará automaticamente a partida).
+   - **Opção B (Pela Central do NativeSX2):** Abra o executável `NativeSX2`, clique em **"Iniciar Jogo / Carregar ISO"** e selecione o arquivo.
+3. **Controles e Resolução:**
+   - **Controles:** Conecte seu controle USB (PlayStation 3/4/5, Xbox, genérico) ou jogue pelo **Teclado** (WASD para andar, setas/ijkl para câmera, X/C/Z/V para ✕/◯/□/△, Q/E para L1/R1, Shift para L2/R2, Enter para Start).
+   - **Alternar Janela / Tela Cheia:** Pressione a tecla **`F11`** a qualquer momento para alternar instantaneamente entre Tela Cheia sem bordas e Modo Janela.
+   - **Modos de Resolução:** Escolha entre **Nativo PS2 (640x448)**, **480p Wide (854x480)**, **720p HD (1280x720)** ou **1080p Full HD (1920x1080)** diretamente na aba de Configurações Gráficas.
+
+---
+
 ## 🏛️ Créditos, Autoria e Atribuições Éticas
 
 O NativeSX2 é construído sobre a cooperação aberta entre a pesquisa independente da **NewPortGame** e o trabalho pioneiro da comunidade open-source internacional:
@@ -73,6 +113,7 @@ nativesx2/
 │   └── nativesx2_font*.ttf # Tipografia vetorial anti-aliased da interface
 ├── docs/                   # Documentação do usuário e licença
 │   ├── LEIAME_E_CREDITOS.txt
+│   ├── PLANO_DE_DESENVOLVIMENTO_GOW_NATIVO.txt # Roteiro de desvinculação e arquitetura 100% nativa
 │   └── research/           # Registro científico de auditorias, notas de rodadas e handoffs
 │       ├── AUDITORIA_CONCLUSOES_2026-09-01.md
 │       ├── HANDOFF_2026-09-02_IOP_INTEGRATION.md

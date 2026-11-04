@@ -368,6 +368,144 @@ static bool extractBootFilesFromIso(const fs::path &isoPath, const fs::path &gam
     return fs::exists(gameDir / "SCUS_973.99");
 }
 
+#ifndef _WIN32
+extern "C" {
+    const char* glfwGetJoystickGUID(int jid);
+    const char* glfwGetJoystickName(int jid);
+    int glfwJoystickPresent(int jid);
+    int glfwJoystickIsGamepad(int jid);
+    const float* glfwGetJoystickAxes(int jid, int* count);
+    const unsigned char* glfwGetJoystickButtons(int jid, int* count);
+    const unsigned char* glfwGetJoystickHats(int jid, int* count);
+}
+static std::string g_lastConfiguredMapping;
+
+static void autoConfigureGamepads(const fs::path &appDir)
+{
+    static bool s_firstLog = true;
+    if (s_firstLog)
+    {
+        s_firstLog = false;
+        std::fprintf(stderr, "[NativeSX2] autoConfigureGamepads executado. Joystick 0 presente: %d, isGamepad: %d\n",
+                     glfwJoystickPresent(0), glfwJoystickPresent(0) ? glfwJoystickIsGamepad(0) : 0);
+    }
+    static bool s_dbLoaded = false;
+    if (!s_dbLoaded)
+    {
+        std::vector<fs::path> candidateDbs = {
+            appDir / "gamecontrollerdb.txt",
+            "/opt/nativesx2/gamecontrollerdb.txt",
+            fs::path(std::getenv("HOME") ? std::getenv("HOME") : "") / ".local/share/NativeSX2/gamecontrollerdb.txt",
+            "/home/cristiano/newportgame4/gamecontrollerdb.txt"
+        };
+        for (const auto &p : candidateDbs)
+        {
+            if (fs::exists(p))
+            {
+                std::ifstream f(p, std::ios::binary);
+                if (f)
+                {
+                    std::ostringstream ss;
+                    ss << f.rdbuf();
+                    SetGamepadMappings(ss.str().c_str());
+                    s_dbLoaded = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    std::string newMappings;
+    for (int jid = 0; jid <= 15; ++jid)
+    {
+        if (!glfwJoystickPresent(jid)) continue;
+        if (glfwJoystickIsGamepad(jid)) continue;
+
+        const char *cguid = glfwGetJoystickGUID(jid);
+        const char *cname = glfwGetJoystickName(jid);
+        if (!cguid || !cname) continue;
+        std::string guid(cguid);
+        std::string name(cname);
+
+        int axisCount = 0;
+        glfwGetJoystickAxes(jid, &axisCount);
+        int btnCount = 0;
+        glfwGetJoystickButtons(jid, &btnCount);
+        int hatCount = 0;
+        glfwGetJoystickHats(jid, &hatCount);
+
+        std::fprintf(stderr, "[NativeSX2] Auto-configurando joystick %d: '%s' (GUID: %s, Eixos: %d, Botões: %d, Hats: %d)\n",
+                     jid, name.c_str(), guid.c_str(), axisCount, btnCount, hatCount);
+
+        bool matchedVendorProduct = false;
+        if (guid.length() >= 24)
+        {
+            std::string venProd = guid.substr(8, 16);
+            std::vector<fs::path> candidateDbs = {
+                appDir / "gamecontrollerdb.txt",
+                "/opt/nativesx2/gamecontrollerdb.txt",
+                fs::path(std::getenv("HOME") ? std::getenv("HOME") : "") / ".local/share/NativeSX2/gamecontrollerdb.txt",
+                "/home/cristiano/newportgame4/gamecontrollerdb.txt"
+            };
+            for (const auto &p : candidateDbs)
+            {
+                if (!fs::exists(p)) continue;
+                std::ifstream f(p);
+                std::string line;
+                while (std::getline(f, line))
+                {
+                    if (line.empty() || line[0] == '#') continue;
+                    if (line.find("platform:Linux") == std::string::npos) continue;
+                    if (line.length() >= 24 && line.substr(8, 16) == venProd)
+                    {
+                        size_t firstComma = line.find(',');
+                        if (firstComma != std::string::npos)
+                        {
+                            std::string clone = guid + "," + name + line.substr(line.find(',', firstComma + 1));
+                            newMappings += clone + "\n";
+                            matchedVendorProduct = true;
+                            break;
+                        }
+                    }
+                }
+                if (matchedVendorProduct) break;
+            }
+        }
+
+        if (!matchedVendorProduct)
+        {
+            std::string m = guid + "," + name + ",a:b0,b:b1,x:b2,y:b3,leftshoulder:b4,rightshoulder:b5,back:b6,start:b7,guide:b8,leftstick:b9,rightstick:b10,";
+            if (hatCount > 0)
+                m += "dpup:h0.1,dpright:h0.2,dpdown:h0.4,dpleft:h0.8,";
+            else if (btnCount >= 15)
+                m += "dpup:b11,dpright:b12,dpdown:b13,dpleft:b14,";
+            if (axisCount >= 6)
+                m += "leftx:a0,lefty:a1,lefttrigger:a2,rightx:a3,righty:a4,righttrigger:a5,";
+            else if (axisCount >= 4)
+                m += "leftx:a0,lefty:a1,rightx:a2,righty:a3,";
+            m += "platform:Linux,\n";
+            newMappings += m;
+        }
+    }
+
+    if (!newMappings.empty())
+    {
+        SetGamepadMappings(newMappings.c_str());
+        g_lastConfiguredMapping += newMappings;
+    }
+    PollInputEvents();
+    static bool s_loggedEnd = false;
+    if (!s_loggedEnd)
+    {
+        s_loggedEnd = true;
+        std::fprintf(stderr, "[NativeSX2] autoConfigureGamepads concluído. Gamepad 0 disponível: %d (Nome: '%s')\n",
+                     IsGamepadAvailable(0), GetGamepadName(0));
+    }
+}
+#else
+static void autoConfigureGamepads(const fs::path &) {}
+#endif
+
 static void loadConfig(const fs::path &cfgFile, LauncherConfig &cfg, const fs::path &appDir)
 {
     std::vector<fs::path> candidates = {
@@ -547,6 +685,14 @@ static bool launchGame(const LauncherConfig &cfg, const fs::path &appDir, std::s
             setenv(b.envBtn, std::to_string(b.btn).c_str(), 1);
     }
 
+#ifndef _WIN32
+    if (!g_lastConfiguredMapping.empty())
+    {
+        setenv("NATIVESX2_CONTROLLER_MAPPING", g_lastConfiguredMapping.c_str(), 1);
+        setenv("SDL_GAMECONTROLLERCONFIG", g_lastConfiguredMapping.c_str(), 1);
+    }
+#endif
+
     fs::path elfPath = gameDir / "SCUS_973.99";
     fs::current_path(runner.parent_path());
 
@@ -568,7 +714,27 @@ static std::string browseForIso(const fs::path &appDir)
                       "if ($f.ShowDialog() -eq 'OK') { Write-Output $f.FileName }\"";
     FILE *p = _popen(cmd.c_str(), "r");
 #else
-    std::string cmd = "zenity --file-selection --title=\"Selecione a ISO do Jogo (NativeSX2)\" --file-filter=\"*.iso *.ISO\" 2>/dev/null";
+    std::string cmd;
+    if (std::system("command -v yad >/dev/null 2>&1") == 0)
+    {
+        cmd = "yad --file --title=\"Selecione a ISO do Jogo (NativeSX2)\" "
+              "--file-filter=\"Imagens ISO (*.iso)|*.iso *.ISO\" "
+              "--file-filter=\"Todos os Arquivos (*.*)|*\" "
+              "--center --width=780 --height=520 2>/dev/null";
+    }
+    else if (std::system("command -v zenity >/dev/null 2>&1") == 0)
+    {
+        cmd = "zenity --file-selection --title=\"Selecione a ISO do Jogo (NativeSX2)\" "
+              "--file-filter=\"*.iso *.ISO\" 2>/dev/null";
+    }
+    else if (std::system("command -v kdialog >/dev/null 2>&1") == 0)
+    {
+        cmd = "kdialog --getopenfilename . \"*.iso *.ISO\" 2>/dev/null";
+    }
+    else
+    {
+        cmd = "zenity --file-selection 2>/dev/null";
+    }
     FILE *p = popen(cmd.c_str(), "r");
 #endif
     if (!p)
@@ -694,6 +860,7 @@ int main(int argc, char **argv)
     SetTargetFPS(60);
     SetExitKey(0);
     loadSmoothFont(appDir);
+    autoConfigureGamepads(appDir);
 
     // Registra automaticamente a associacao de .ISO ao abrir o NativeSX2 pela primeira vez
     {
@@ -711,6 +878,11 @@ int main(int argc, char **argv)
 
     while (!WindowShouldClose())
     {
+        static int s_padCheckTick = 0;
+        if (++s_padCheckTick % 90 == 0 || tab == 1 || waitingBtnIdx >= 0)
+        {
+            autoConfigureGamepads(appDir);
+        }
         if (IsFileDropped())
         {
             FilePathList dropped = LoadDroppedFiles();
@@ -956,6 +1128,12 @@ int main(int argc, char **argv)
                     padCol = {100, 255, 160, 255};
                     break;
                 }
+            }
+            static bool s_loggedPadStatus = false;
+            if (!s_loggedPadStatus)
+            {
+                s_loggedPadStatus = true;
+                std::fprintf(stderr, "[NativeSX2] Status do Controle: %s\n", padStatus.c_str());
             }
             drawSmoothText(padStatus.c_str(), 44, 158, 18, padCol);
 
